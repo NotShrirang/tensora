@@ -1,0 +1,461 @@
+#include "tensor_ops.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <cmath>
+#include <random>
+#include <algorithm>
+#include <stdexcept>
+
+namespace py = pybind11;
+
+namespace tensora
+{
+
+    // TensorImpl implementation
+    TensorImpl::TensorImpl(const std::vector<float> &input_data,
+                           const std::vector<int64_t> &input_shape,
+                           const std::string &input_dtype,
+                           const std::string &input_device)
+        : shape(input_shape), dtype(input_dtype), device(input_device)
+    {
+
+        size = 1;
+        for (auto dim : shape)
+        {
+            size *= dim;
+        }
+
+        if (device == "cpu")
+        {
+            data = new float[size];
+            std::copy(input_data.begin(), input_data.end(), data);
+        }
+        else if (device == "cuda")
+        {
+#ifdef WITH_CUDA
+            data = static_cast<float *>(cuda_malloc(size * sizeof(float)));
+            cuda_memcpy_h2d(data, input_data.data(), size * sizeof(float));
+#else
+            throw std::runtime_error("CUDA support not compiled");
+#endif
+        }
+    }
+
+    TensorImpl::~TensorImpl()
+    {
+        if (device == "cuda")
+        {
+#ifdef WITH_CUDA
+            cuda_free(data);
+#endif
+        }
+        else
+        {
+            delete[] data;
+        }
+    }
+
+    std::vector<float> TensorImpl::to_vector() const
+    {
+        std::vector<float> result(size);
+        if (device == "cpu")
+        {
+            std::copy(data, data + size, result.begin());
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            cuda_memcpy_d2h(result.data(), data, size * sizeof(float));
+#endif
+        }
+        return result;
+    }
+
+    // Tensor creation
+    TensorHandle create_tensor_cpu(const std::vector<float> &data,
+                                   const std::vector<int64_t> &shape,
+                                   const std::string &dtype)
+    {
+        return std::make_shared<TensorImpl>(data, shape, dtype, "cpu");
+    }
+
+    TensorHandle create_tensor_cuda(const std::vector<float> &data,
+                                    const std::vector<int64_t> &shape,
+                                    const std::string &dtype)
+    {
+        return std::make_shared<TensorImpl>(data, shape, dtype, "cuda");
+    }
+
+    TensorHandle copy_tensor(const TensorHandle &tensor)
+    {
+        auto data_vec = tensor->to_vector();
+        return std::make_shared<TensorImpl>(data_vec, tensor->shape, tensor->dtype, tensor->device);
+    }
+
+    // Device transfer
+    TensorHandle tensor_cpu_to_cuda(const TensorHandle &tensor)
+    {
+        if (tensor->device == "cuda")
+            return tensor;
+        auto data_vec = tensor->to_vector();
+        return create_tensor_cuda(data_vec, tensor->shape, tensor->dtype);
+    }
+
+    TensorHandle tensor_cuda_to_cpu(const TensorHandle &tensor)
+    {
+        if (tensor->device == "cpu")
+            return tensor;
+        auto data_vec = tensor->to_vector();
+        return create_tensor_cpu(data_vec, tensor->shape, tensor->dtype);
+    }
+
+    // Data access
+    std::vector<float> tensor_to_list(const TensorHandle &tensor)
+    {
+        return tensor->to_vector();
+    }
+
+    // Element-wise operations
+    TensorHandle add(const TensorHandle &a, const TensorHandle &b)
+    {
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(a->size),
+                                                   a->shape, a->dtype, a->device);
+        if (a->device == "cpu")
+        {
+            add_cpu(a->data, b->data, result->data, a->size);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            add_cuda(a->data, b->data, result->data, a->size);
+#endif
+        }
+        return result;
+    }
+
+    TensorHandle subtract(const TensorHandle &a, const TensorHandle &b)
+    {
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(a->size),
+                                                   a->shape, a->dtype, a->device);
+        if (a->device == "cpu")
+        {
+            sub_cpu(a->data, b->data, result->data, a->size);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            sub_cuda(a->data, b->data, result->data, a->size);
+#endif
+        }
+        return result;
+    }
+
+    TensorHandle multiply(const TensorHandle &a, const TensorHandle &b)
+    {
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(a->size),
+                                                   a->shape, a->dtype, a->device);
+        if (a->device == "cpu")
+        {
+            mul_cpu(a->data, b->data, result->data, a->size);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            mul_cuda(a->data, b->data, result->data, a->size);
+#endif
+        }
+        return result;
+    }
+
+    TensorHandle divide(const TensorHandle &a, const TensorHandle &b)
+    {
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(a->size),
+                                                   a->shape, a->dtype, a->device);
+        if (a->device == "cpu")
+        {
+            div_cpu(a->data, b->data, result->data, a->size);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            div_cuda(a->data, b->data, result->data, a->size);
+#endif
+        }
+        return result;
+    }
+
+    // Matrix operations
+    TensorHandle matmul(const TensorHandle &a, const TensorHandle &b)
+    {
+        // Assuming 2D matrices for now: A(m,k) @ B(k,n) = C(m,n)
+        int64_t m = a->shape[a->shape.size() - 2];
+        int64_t k = a->shape[a->shape.size() - 1];
+        int64_t n = b->shape[b->shape.size() - 1];
+
+        std::vector<int64_t> result_shape = a->shape;
+        result_shape[result_shape.size() - 1] = n;
+
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(m * n),
+                                                   result_shape, a->dtype, a->device);
+        if (a->device == "cpu")
+        {
+            matmul_cpu(a->data, b->data, result->data, m, n, k);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            matmul_cuda(a->data, b->data, result->data, m, n, k);
+#endif
+        }
+        return result;
+    }
+
+    TensorHandle transpose(const TensorHandle &a)
+    {
+        // Transpose last two dimensions
+        auto result_shape = a->shape;
+        std::swap(result_shape[result_shape.size() - 2], result_shape[result_shape.size() - 1]);
+
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(a->size),
+                                                   result_shape, a->dtype, a->device);
+
+        // Simple transpose for 2D matrices
+        int64_t rows = a->shape[a->shape.size() - 2];
+        int64_t cols = a->shape[a->shape.size() - 1];
+
+        for (int64_t i = 0; i < rows; ++i)
+        {
+            for (int64_t j = 0; j < cols; ++j)
+            {
+                result->data[j * rows + i] = a->data[i * cols + j];
+            }
+        }
+
+        return result;
+    }
+
+    // Activation functions
+    TensorHandle relu(const TensorHandle &x)
+    {
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(x->size),
+                                                   x->shape, x->dtype, x->device);
+        if (x->device == "cpu")
+        {
+            relu_cpu(x->data, result->data, x->size);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            relu_cuda(x->data, result->data, x->size);
+#endif
+        }
+        return result;
+    }
+
+    TensorHandle sigmoid(const TensorHandle &x)
+    {
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(x->size),
+                                                   x->shape, x->dtype, x->device);
+        if (x->device == "cpu")
+        {
+            sigmoid_cpu(x->data, result->data, x->size);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            sigmoid_cuda(x->data, result->data, x->size);
+#endif
+        }
+        return result;
+    }
+
+    TensorHandle tanh_op(const TensorHandle &x)
+    {
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(x->size),
+                                                   x->shape, x->dtype, x->device);
+        if (x->device == "cpu")
+        {
+            tanh_cpu(x->data, result->data, x->size);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            tanh_cuda(x->data, result->data, x->size);
+#endif
+        }
+        return result;
+    }
+
+    TensorHandle sqrt_op(const TensorHandle &x)
+    {
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(x->size),
+                                                   x->shape, x->dtype, x->device);
+        if (x->device == "cpu")
+        {
+            sqrt_cpu(x->data, result->data, x->size);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            sqrt_cuda(x->data, result->data, x->size);
+#endif
+        }
+        return result;
+    }
+
+    TensorHandle softmax(const TensorHandle &x, int64_t dim)
+    {
+        // Simplified softmax for last dimension
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(x->size),
+                                                   x->shape, x->dtype, x->device);
+
+        // CPU implementation
+        if (x->device == "cpu")
+        {
+            int64_t outer = 1;
+            for (size_t i = 0; i < x->shape.size() - 1; ++i)
+            {
+                outer *= x->shape[i];
+            }
+            int64_t inner = x->shape[x->shape.size() - 1];
+
+            for (int64_t i = 0; i < outer; ++i)
+            {
+                float max_val = x->data[i * inner];
+                for (int64_t j = 1; j < inner; ++j)
+                {
+                    max_val = std::max(max_val, x->data[i * inner + j]);
+                }
+
+                float sum = 0.0f;
+                for (int64_t j = 0; j < inner; ++j)
+                {
+                    result->data[i * inner + j] = std::exp(x->data[i * inner + j] - max_val);
+                    sum += result->data[i * inner + j];
+                }
+
+                for (int64_t j = 0; j < inner; ++j)
+                {
+                    result->data[i * inner + j] /= sum;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // Loss functions
+    TensorHandle mse_loss(const TensorHandle &pred, const TensorHandle &target)
+    {
+        float sum = 0.0f;
+        std::vector<float> pred_data = pred->to_vector();
+        std::vector<float> target_data = target->to_vector();
+
+        for (size_t i = 0; i < pred_data.size(); ++i)
+        {
+            float diff = pred_data[i] - target_data[i];
+            sum += diff * diff;
+        }
+
+        float loss_val = sum / pred_data.size();
+        return std::make_shared<TensorImpl>(std::vector<float>{loss_val},
+                                            std::vector<int64_t>{},
+                                            pred->dtype, pred->device);
+    }
+
+    TensorHandle cross_entropy_loss(const TensorHandle &pred, const TensorHandle &target)
+    {
+        // Simplified cross entropy: -mean(sum(target * log(pred)))
+        float sum = 0.0f;
+        std::vector<float> pred_data = pred->to_vector();
+        std::vector<float> target_data = target->to_vector();
+
+        for (size_t i = 0; i < pred_data.size(); ++i)
+        {
+            sum -= target_data[i] * std::log(pred_data[i] + 1e-8f);
+        }
+
+        float loss_val = sum / (pred->shape[0]); // Batch size
+        return std::make_shared<TensorImpl>(std::vector<float>{loss_val},
+                                            std::vector<int64_t>{},
+                                            pred->dtype, pred->device);
+    }
+
+    // Random tensor
+    TensorHandle randn(const std::vector<int64_t> &shape,
+                       const std::string &dtype,
+                       const std::string &device)
+    {
+        int64_t size = 1;
+        for (auto dim : shape)
+        {
+            size *= dim;
+        }
+
+        std::vector<float> data(size);
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::normal_distribution<float> dist(0.0f, 1.0f);
+
+        for (int64_t i = 0; i < size; ++i)
+        {
+            data[i] = dist(gen);
+        }
+
+        return std::make_shared<TensorImpl>(data, shape, dtype, device);
+    }
+
+} // namespace tensora
+
+// Python bindings
+PYBIND11_MODULE(_C, m)
+{
+    m.doc() = "Tensora C++ extension module - Pure implementation without NumPy";
+
+    py::class_<tensora::TensorImpl, std::shared_ptr<tensora::TensorImpl>>(m, "TensorImpl")
+        .def_readonly("shape", &tensora::TensorImpl::shape)
+        .def_readonly("size", &tensora::TensorImpl::size)
+        .def_readonly("dtype", &tensora::TensorImpl::dtype)
+        .def_readonly("device", &tensora::TensorImpl::device);
+
+    // Tensor creation
+    m.def("create_tensor_cpu", &tensora::create_tensor_cpu);
+    m.def("create_tensor_cuda", &tensora::create_tensor_cuda);
+    m.def("copy_tensor", &tensora::copy_tensor);
+
+    // Device transfer
+    m.def("tensor_cpu_to_cuda", &tensora::tensor_cpu_to_cuda);
+    m.def("tensor_cuda_to_cpu", &tensora::tensor_cuda_to_cpu);
+
+    // Data access
+    m.def("tensor_to_list", &tensora::tensor_to_list);
+
+    // Operations
+    m.def("add", &tensora::add);
+    m.def("subtract", &tensora::subtract);
+    m.def("multiply", &tensora::multiply);
+    m.def("divide", &tensora::divide);
+    m.def("matmul", &tensora::matmul);
+    m.def("transpose", &tensora::transpose);
+
+    // Activations
+    m.def("relu", &tensora::relu);
+    m.def("sigmoid", &tensora::sigmoid);
+    m.def("tanh", &tensora::tanh_op);
+    m.def("softmax", &tensora::softmax);
+    m.def("sqrt", &tensora::sqrt_op);
+
+    // Losses
+    m.def("mse_loss", &tensora::mse_loss);
+    m.def("cross_entropy_loss", &tensora::cross_entropy_loss);
+
+    // Utility
+    m.def("randn", &tensora::randn);
+
+#ifdef WITH_CUDA
+    m.def("cuda_is_available", &tensora::cuda_is_available);
+#else
+    m.def("cuda_is_available", []()
+          { return false; });
+#endif
+}

@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "pybind11>=2.6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tensora"
+dynamic = ["version"]
+description = "A high-performance tensor library with CUDA acceleration"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Shrirang Mahajan", email = "shrirangmahajan123@gmail.com"}
+]
+keywords = ["tensor", "deep-learning", "cuda", "gpu", "machine-learning"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C++",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+Homepage = "https://github.com/NotShrirang/tensora"
+Documentation = "https://tensora.readthedocs.io"
+Repository = "https://github.com/NotShrirang/tensora"
+Issues = "https://github.com/NotShrirang/tensora/issues"
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --cov=tensora --cov-report=html --cov-report=term"
+
+[tool.coverage.run]
+source = ["tensora"]
+omit = ["*/tests/*", "*/examples/*"]
