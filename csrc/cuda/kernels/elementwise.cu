@@ -82,6 +82,12 @@ __global__ void sqrt_kernel(const float* input, float* output, int64_t size) {
     }
 }
 
+__global__ void pow_kernel(const float* input, float* output, float power, int64_t size) {
+    int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        output[idx] = powf(input[idx], power);
+    }
+
 }
 
 void add_cuda(const float* a, const float* b, float* out, int64_t size) {
@@ -220,4 +226,13 @@ void sqrt_cuda(const float* in, float* out, int64_t size) {
     CUDA_CHECK(cudaDeviceSynchronize());
 }
 
+void pow_cuda(const float* in, float* out, float power, int64_t size) {
+    dim3 grid = cuda::get_grid_size(size);
+    dim3 block(cuda::BLOCK_SIZE);
+    cuda::pow_kernel<<<grid, block>>>(in, out, power, size);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
+}
+
 } // namespace tensora
+}

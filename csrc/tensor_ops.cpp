@@ -341,6 +341,23 @@ namespace tensora
         return result;
     }
 
+    TensorHandle pow_op(const TensorHandle &x, float power)
+    {
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(x->size),
+                                                   x->shape, x->dtype, x->device);
+        if (x->device == "cpu")
+        {
+            pow_cpu(x->data, result->data, power, x->size);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            pow_cuda(x->data, result->data, power, x->size);
+#endif
+        }
+        return result;
+    }
+
     TensorHandle softmax(const TensorHandle &x, int64_t dim)
     {
         // Simplified softmax for last dimension
@@ -483,6 +500,7 @@ PYBIND11_MODULE(_C, m)
     m.def("tanh", &tensora::tanh_op);
     m.def("softmax", &tensora::softmax);
     m.def("sqrt", &tensora::sqrt_op);
+    m.def("pow", &tensora::pow_op);
 
     // Losses
     m.def("mse_loss", &tensora::mse_loss);

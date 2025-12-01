@@ -13,8 +13,8 @@ namespace tensora
         }
     }
 
-    void broadcasting_add_cpu(const float *a, const float *b, float *out, 
-                              const std::vector<int64_t> &shape_a, 
+    void broadcasting_add_cpu(const float *a, const float *b, float *out,
+                              const std::vector<int64_t> &shape_a,
                               const std::vector<int64_t> &shape_b,
                               const std::vector<int64_t> &shape_out)
     {
@@ -23,62 +23,78 @@ namespace tensora
         int64_t ndim_b = shape_b.size();
 
         std::vector<int64_t> stride_a_orig(ndim_a, 1);
-        for (int64_t i = ndim_a - 2; i >= 0; --i) {
+        for (int64_t i = ndim_a - 2; i >= 0; --i)
+        {
             stride_a_orig[i] = stride_a_orig[i + 1] * shape_a[i + 1];
         }
-        
+
         std::vector<int64_t> stride_b_orig(ndim_b, 1);
-        for (int64_t i = ndim_b - 2; i >= 0; --i) {
+        for (int64_t i = ndim_b - 2; i >= 0; --i)
+        {
             stride_b_orig[i] = stride_b_orig[i + 1] * shape_b[i + 1];
         }
 
         std::vector<int64_t> stride_out(ndim_out, 1);
-        for (int64_t i = ndim_out - 2; i >= 0; --i) {
+        for (int64_t i = ndim_out - 2; i >= 0; --i)
+        {
             stride_out[i] = stride_out[i + 1] * shape_out[i + 1];
         }
 
         std::vector<int64_t> stride_a(ndim_out, 0);
-        for (int64_t i = 0; i < ndim_out; ++i) {
+        for (int64_t i = 0; i < ndim_out; ++i)
+        {
             int64_t idx_a = i - (ndim_out - ndim_a);
-            if (idx_a >= 0 && idx_a < ndim_a) {
-                if (shape_a[idx_a] == shape_out[i]) {
+            if (idx_a >= 0 && idx_a < ndim_a)
+            {
+                if (shape_a[idx_a] == shape_out[i])
+                {
                     stride_a[i] = stride_a_orig[idx_a];
-                } else if (shape_a[idx_a] == 1) {
+                }
+                else if (shape_a[idx_a] == 1)
+                {
                     stride_a[i] = 0;
                 }
             }
         }
-        
+
         std::vector<int64_t> stride_b(ndim_out, 0);
-        for (int64_t i = 0; i < ndim_out; ++i) {
+        for (int64_t i = 0; i < ndim_out; ++i)
+        {
             int64_t idx_b = i - (ndim_out - ndim_b);
-            if (idx_b >= 0 && idx_b < ndim_b) {
-                if (shape_b[idx_b] == shape_out[i]) {
+            if (idx_b >= 0 && idx_b < ndim_b)
+            {
+                if (shape_b[idx_b] == shape_out[i])
+                {
                     stride_b[i] = stride_b_orig[idx_b];
-                } else if (shape_b[idx_b] == 1) {
+                }
+                else if (shape_b[idx_b] == 1)
+                {
                     stride_b[i] = 0;
                 }
             }
         }
 
         int64_t size_out = 1;
-        for (auto dim : shape_out) {
+        for (auto dim : shape_out)
+        {
             size_out *= dim;
         }
-        
-        for (int64_t idx = 0; idx < size_out; ++idx) {
+
+        for (int64_t idx = 0; idx < size_out; ++idx)
+        {
             int64_t idx_a = 0;
             int64_t idx_b = 0;
             int64_t remaining = idx;
-            
-            for (int64_t i = 0; i < ndim_out; ++i) {
+
+            for (int64_t i = 0; i < ndim_out; ++i)
+            {
                 int64_t coord = remaining / stride_out[i];
                 remaining = remaining % stride_out[i];
-                
+
                 idx_a += coord * stride_a[i];
                 idx_b += coord * stride_b[i];
             }
-            
+
             out[idx] = a[idx_a] + b[idx_b];
         }
     }
@@ -156,6 +172,14 @@ namespace tensora
         for (int64_t i = 0; i < size; ++i)
         {
             out[i] = std::sqrt(in[i]);
+        }
+    }
+
+    void pow_cpu(const float *in, float *out, float power, int64_t size)
+    {
+        for (int64_t i = 0; i < size; ++i)
+        {
+            out[i] = std::pow(in[i], power);
         }
     }
 

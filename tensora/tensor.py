@@ -359,6 +359,27 @@ class Tensor:
     def __str__(self) -> str:
         data_repr = self.tolist() if _C else "<not built>"
         return f"Tensor({data_repr})"
+
+    def __pow__(self, power: float) -> 'Tensor':
+        """Element-wise power."""
+        result = Tensor.__new__(Tensor)
+        result._shape = self._shape
+        result._size = self._size
+        result.dtype = self.dtype
+        result.device = self.device
+        result.grad = None
+        
+        if _C:
+            result._c_tensor = _C.power(self._c_tensor, float(power))
+        
+        if self.requires_grad:
+            result.requires_grad = True
+            result._grad_fn = ('pow', self, power)
+        else:
+            result.requires_grad = False
+            result._grad_fn = None
+        
+        return result
     
     @staticmethod
     def zeros(shape: Tuple[int, ...], dtype: str = 'float32', device: str = 'cpu', requires_grad: bool = False) -> 'Tensor':
@@ -486,6 +507,12 @@ class Tensor:
                 x, output = inputs[0], inputs[1] if len(inputs) > 1 else None
                 if x.requires_grad and output is not None:
                     grad_input = Tensor.full(output.shape, 0.5, device=output.device) / output
+                    x.backward(grad * grad_input)
+            elif op == 'pow':
+                # d(x^p)/dx = p * x^(p-1)
+                x, power = inputs[0], inputs[1]
+                if x.requires_grad:
+                    grad_input = Tensor.full(x.shape, power, device=x.device) * (x ** (power - 1))
                     x.backward(grad * grad_input)
     
     def __iter__(self):

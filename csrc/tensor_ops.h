@@ -46,6 +46,7 @@ namespace tensora
     TensorHandle multiply(const TensorHandle &a, const TensorHandle &b);
     TensorHandle divide(const TensorHandle &a, const TensorHandle &b);
     TensorHandle sqrt_op(const TensorHandle &x);
+    TensorHandle pow_op(const TensorHandle &x, float power);
 
     TensorHandle matmul(const TensorHandle &a, const TensorHandle &b);
     TensorHandle transpose(const TensorHandle &a);
@@ -65,8 +66,8 @@ namespace tensora
     bool cuda_is_available();
 
     void add_cpu(const float *a, const float *b, float *out, int64_t size);
-    void broadcasting_add_cpu(const float *a, const float *b, float *out, 
-                              const std::vector<int64_t> &shape_a, 
+    void broadcasting_add_cpu(const float *a, const float *b, float *out,
+                              const std::vector<int64_t> &shape_a,
                               const std::vector<int64_t> &shape_b,
                               const std::vector<int64_t> &shape_out);
     void sub_cpu(const float *a, const float *b, float *out, int64_t size);
@@ -78,11 +79,12 @@ namespace tensora
     void sigmoid_cpu(const float *in, float *out, int64_t size);
     void tanh_cpu(const float *in, float *out, int64_t size);
     void sqrt_cpu(const float *in, float *out, int64_t size);
+    void pow_cpu(const float *in, float *out, float power, int64_t size);
 
 #ifdef WITH_CUDA
     void add_cuda(const float *a, const float *b, float *out, int64_t size);
-    void broadcasting_add_cuda(const float *a, const float *b, float *out, 
-                               const std::vector<int64_t> &shape_a, 
+    void broadcasting_add_cuda(const float *a, const float *b, float *out,
+                               const std::vector<int64_t> &shape_a,
                                const std::vector<int64_t> &shape_b,
                                const std::vector<int64_t> &shape_out);
     void sub_cuda(const float *a, const float *b, float *out, int64_t size);
@@ -94,6 +96,7 @@ namespace tensora
     void sigmoid_cuda(const float *in, float *out, int64_t size);
     void tanh_cuda(const float *in, float *out, int64_t size);
     void sqrt_cuda(const float *in, float *out, int64_t size);
+    void pow_cuda(const float *in, float *out, float power, int64_t size);
 
     void *cuda_malloc(size_t size);
     void cuda_free(void *ptr);
