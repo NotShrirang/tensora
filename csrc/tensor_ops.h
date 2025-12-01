@@ -7,14 +7,10 @@
 
 namespace tensora
 {
-
-    // Forward declaration
     class TensorImpl;
 
-    // Tensor handle for Python interface
     using TensorHandle = std::shared_ptr<TensorImpl>;
 
-    // Tensor implementation class
     class TensorImpl
     {
     public:
@@ -31,7 +27,6 @@ namespace tensora
         std::vector<float> to_vector() const;
     };
 
-    // Tensor creation functions
     TensorHandle create_tensor_cpu(const std::vector<float> &data,
                                    const std::vector<int64_t> &shape,
                                    const std::string &dtype);
@@ -40,14 +35,11 @@ namespace tensora
                                     const std::string &dtype);
     TensorHandle copy_tensor(const TensorHandle &tensor);
 
-    // Device transfer
     TensorHandle tensor_cpu_to_cuda(const TensorHandle &tensor);
     TensorHandle tensor_cuda_to_cpu(const TensorHandle &tensor);
 
-    // Data access
     std::vector<float> tensor_to_list(const TensorHandle &tensor);
 
-    // Element-wise operations
     TensorHandle add(const TensorHandle &a, const TensorHandle &b);
     TensorHandle broadcasting_add(const TensorHandle &a, const TensorHandle &b);
     TensorHandle subtract(const TensorHandle &a, const TensorHandle &b);
@@ -55,31 +47,28 @@ namespace tensora
     TensorHandle divide(const TensorHandle &a, const TensorHandle &b);
     TensorHandle sqrt_op(const TensorHandle &x);
 
-    // Matrix operations
     TensorHandle matmul(const TensorHandle &a, const TensorHandle &b);
     TensorHandle transpose(const TensorHandle &a);
 
-    // Activation functions
     TensorHandle relu(const TensorHandle &x);
     TensorHandle sigmoid(const TensorHandle &x);
     TensorHandle tanh_op(const TensorHandle &x);
     TensorHandle softmax(const TensorHandle &x, int64_t dim);
 
-    // Loss functions
     TensorHandle mse_loss(const TensorHandle &pred, const TensorHandle &target);
     TensorHandle cross_entropy_loss(const TensorHandle &pred, const TensorHandle &target);
 
-    // Utility functions
     TensorHandle randn(const std::vector<int64_t> &shape,
                        const std::string &dtype,
                        const std::string &device);
 
-    // CUDA availability
     bool cuda_is_available();
 
-    // Low-level CPU operations
     void add_cpu(const float *a, const float *b, float *out, int64_t size);
-    void broadcasting_add_cpu(const float *a, const float *b, float *out, int64_t size_a, int64_t size_b);
+    void broadcasting_add_cpu(const float *a, const float *b, float *out, 
+                              const std::vector<int64_t> &shape_a, 
+                              const std::vector<int64_t> &shape_b,
+                              const std::vector<int64_t> &shape_out);
     void sub_cpu(const float *a, const float *b, float *out, int64_t size);
     void mul_cpu(const float *a, const float *b, float *out, int64_t size);
     void div_cpu(const float *a, const float *b, float *out, int64_t size);
@@ -91,9 +80,11 @@ namespace tensora
     void sqrt_cpu(const float *in, float *out, int64_t size);
 
 #ifdef WITH_CUDA
-    // Low-level CUDA operations
     void add_cuda(const float *a, const float *b, float *out, int64_t size);
-    void broadcasting_add_cuda(const float *a, const float *b, float *out, int64_t size_a, int64_t size_b);
+    void broadcasting_add_cuda(const float *a, const float *b, float *out, 
+                               const std::vector<int64_t> &shape_a, 
+                               const std::vector<int64_t> &shape_b,
+                               const std::vector<int64_t> &shape_out);
     void sub_cuda(const float *a, const float *b, float *out, int64_t size);
     void mul_cuda(const float *a, const float *b, float *out, int64_t size);
     void div_cuda(const float *a, const float *b, float *out, int64_t size);
@@ -104,11 +95,10 @@ namespace tensora
     void tanh_cuda(const float *in, float *out, int64_t size);
     void sqrt_cuda(const float *in, float *out, int64_t size);
 
-    // CUDA utility functions
     void *cuda_malloc(size_t size);
     void cuda_free(void *ptr);
     void cuda_memcpy_h2d(void *dst, const void *src, size_t size);
     void cuda_memcpy_d2h(void *dst, const void *src, size_t size);
 #endif
 
-} // namespace tensora
+}

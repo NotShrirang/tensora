@@ -160,12 +160,12 @@ namespace tensora
         auto result = std::make_shared<TensorImpl>(std::vector<float>(result_size), result_shape, a->dtype, a->device);
         if (a->device == "cpu")
         {
-            broadcasting_add_cpu(a->data, b->data, result->data, a->size, b->size);
+            broadcasting_add_cpu(a->data, b->data, result->data, a->shape, b->shape, result_shape);
         }
         else
         {
 #ifdef WITH_CUDA
-            broadcasting_add_cuda(a->data, b->data, result->data, a->size, b->size);
+            broadcasting_add_cuda(a->data, b->data, result->data, a->shape, b->shape, result_shape);
 #endif
         }
         return result;
