@@ -51,6 +51,7 @@ namespace tensora
     TensorHandle matmul(const TensorHandle &a, const TensorHandle &b);
     TensorHandle transpose(const TensorHandle &a);
     TensorHandle sum(const TensorHandle &x, int64_t dim);
+    TensorHandle mean(const TensorHandle &x, int64_t dim);
 
     TensorHandle relu(const TensorHandle &x);
     TensorHandle sigmoid(const TensorHandle &x);
@@ -88,6 +89,9 @@ namespace tensora
     void sqrt_cpu(const float *in, float *out, int64_t size);
     void pow_cpu(const float *in, float *out, float power, int64_t size);
     void sum_cpu(const float *in, float *out, const std::vector<int64_t> &shape, int64_t dim);
+    void mean_cpu(const float *in, float *out, const std::vector<int64_t> &shape, int64_t dim);
+    void log_cpu(const float *in, float *out, int64_t size);
+    void exp_cpu(const float *in, float *out, int64_t size);
 
 #ifdef WITH_CUDA
     void add_cuda(const float *a, const float *b, float *out, int64_t size);
@@ -106,6 +110,9 @@ namespace tensora
     void sqrt_cuda(const float *in, float *out, int64_t size);
     void pow_cuda(const float *in, float *out, float power, int64_t size);
     void sum_cuda(const float *in, float *out, const std::vector<int64_t> &shape, int64_t dim);
+    void mean_cuda(const float *in, float *out, const std::vector<int64_t> &shape, int64_t dim);
+    void log_cuda(const float *in, float *out, int64_t size);
+    void exp_cuda(const float *in, float *out, int64_t size);
 
     void *cuda_malloc(size_t size);
     void cuda_free(void *ptr);

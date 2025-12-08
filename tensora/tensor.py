@@ -565,7 +565,7 @@ class Tensor:
             for row in data_list:
                 yield Tensor([row] if not isinstance(row, list) else row, 
                            device=self.device, dtype=self.dtype)
-    
+
     def __len__(self):
         """Return length of first dimension."""
         if len(self._shape) == 0:
@@ -661,6 +661,84 @@ class Tensor:
         if self.requires_grad:
             result.requires_grad = True
             result._grad_fn = ('sum', self, dim)
+        else:
+            result.requires_grad = False
+            result._grad_fn = None
+        
+        return result
+
+    def mean(self, dim: Optional[int] = None) -> 'Tensor':
+        """Mean along specified dimension."""
+        if dim is not None and (dim < 0 or dim >= len(self._shape)):
+            raise ValueError(f"Dimension out of range (expected to be in range of [0, {len(self._shape)-1}], but got {dim})")
+        
+        result = Tensor.__new__(Tensor)
+        if dim is None:
+            # Mean of all elements
+            result._shape = ()
+            result._size = 1
+        else:
+            # Mean along specified dimension
+            result_shape = list(self._shape)
+            del result_shape[dim]
+            result._shape = tuple(result_shape)
+            result._size = Tensor._compute_size(result._shape)
+        
+        result.dtype = self.dtype
+        result.device = self.device
+        result.grad = None
+        
+        if _C:
+            result._c_tensor = _C.mean(self._c_tensor, dim if dim is not None else -1)
+        
+        # Track gradient through mean
+        if self.requires_grad:
+            result.requires_grad = True
+            result._grad_fn = ('mean', self, dim)
+        else:
+            result.requires_grad = False
+            result._grad_fn = None
+        
+        return result
+    
+    def log(self) -> 'Tensor':
+        """Element-wise natural logarithm."""
+        result = Tensor.__new__(Tensor)
+        result._shape = self._shape
+        result._size = self._size
+        result.dtype = self.dtype
+        result.device = self.device
+        result.grad = None
+        
+        if _C:
+            result._c_tensor = _C.log(self._c_tensor)
+        
+        # Track gradient: d(log(x))/dx = 1/x
+        if self.requires_grad:
+            result.requires_grad = True
+            result._grad_fn = ('log', self)
+        else:
+            result.requires_grad = False
+            result._grad_fn = None
+        
+        return result
+
+    def exp(self) -> 'Tensor':
+        """Element-wise exponential."""
+        result = Tensor.__new__(Tensor)
+        result._shape = self._shape
+        result._size = self._size
+        result.dtype = self.dtype
+        result.device = self.device
+        result.grad = None
+        
+        if _C:
+            result._c_tensor = _C.exp(self._c_tensor)
+        
+        # Track gradient: d(exp(x))/dx = exp(x)
+        if self.requires_grad:
+            result.requires_grad = True
+            result._grad_fn = ('exp', self)
         else:
             result.requires_grad = False
             result._grad_fn = None

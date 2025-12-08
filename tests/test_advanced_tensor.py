@@ -43,9 +43,8 @@ class TestAdvancedTensorOps:
     def test_tensor_mean(self):
         # Mean along dimensions
         x = Tensor([[1, 2], [3, 4]], dtype='float32')
-        with pytest.raises(AttributeError):
-            y = x.mean(dim=0)
-            assert y.tolist() == [2, 3]
+        y = x.mean(dim=0)
+        assert y.tolist() == [2, 3]
 
     def test_tensor_max(self):
         # Max along dimensions
@@ -78,18 +77,16 @@ class TestAdvancedTensorOps:
     def test_tensor_exp(self):
         # Element-wise exponential
         x = Tensor([[0, 1]], dtype='float32')
-        with pytest.raises(AttributeError):
-            y = x.exp()
-            assert abs(y.tolist()[0][0] - 1.0) < 1e-5  # exp(0) = 1
-            assert abs(y.tolist()[0][1] - np.e) < 1e-5  # exp(1) = e
+        y = x.exp()
+        assert abs(y.tolist()[0][0] - 1.0) < 1e-5  # exp(0) = 1
+        assert abs(y.tolist()[0][1] - np.e) < 1e-5  # exp(1) = e
 
     def test_tensor_log(self):
         # Element-wise natural log
         x = Tensor([[1, np.e]], dtype='float32')
-        with pytest.raises(AttributeError):
-            y = x.log()
-            assert abs(y.tolist()[0][0]) < 1e-5  # log(1) = 0
-            assert abs(y.tolist()[0][1] - 1.0) < 1e-5  # log(e) = 1
+        y = x.log()
+        assert abs(y.tolist()[0][0]) < 1e-5  # log(1) = 0
+        assert abs(y.tolist()[0][1] - 1.0) < 1e-5  # log(e) = 1
 
     def test_tensor_pow(self):
         # Element-wise power

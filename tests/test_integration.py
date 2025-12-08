@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 import tensora as ts
+import tensora.functional as F
 from tensora import Tensor, nn, optim
 
 
@@ -32,7 +33,7 @@ class TestIntegration:
             # Forward pass
             optimizer.zero_grad()
             pred = model(x)
-            loss = ((pred - y) ** 2).mean()  # MSE loss
+            loss = F.mse_loss(pred, y)
 
             # Backward pass
             loss.backward(Tensor([1.0]))

@@ -265,8 +265,7 @@ namespace tensora
         auto result_shape = a->shape;
         std::swap(result_shape[result_shape.size() - 2], result_shape[result_shape.size() - 1]);
 
-        auto result = std::make_shared<TensorImpl>(std::vector<float>(a->size),
-                                                   result_shape, a->dtype, a->device);
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(a->size), result_shape, a->dtype, a->device);
 
         int64_t rows = a->shape[a->shape.size() - 2];
         int64_t cols = a->shape[a->shape.size() - 1];
@@ -366,6 +365,81 @@ namespace tensora
         {
 #ifdef WITH_CUDA
             sum_cuda(x->data, result->data, x->shape, dim);
+#endif
+        }
+        return result;
+    }
+
+    TensorHandle mean(const TensorHandle &x, int64_t dim)
+    {
+        // Simplified mean over a single dimension
+        std::vector<int64_t> result_shape;
+        int64_t result_size;
+
+        if (dim == -1)
+        {
+            // Mean of all elements - result is a scalar
+            result_shape = {}; // Empty shape for scalar
+            result_size = 1;
+        }
+        else
+        {
+            // Mean over specified dimension
+            result_shape = x->shape;
+            result_shape.erase(result_shape.begin() + dim);
+
+            result_size = 1;
+            for (auto dim_size : result_shape)
+            {
+                result_size *= dim_size;
+            }
+        }
+
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(result_size),
+                                                   result_shape, x->dtype, x->device);
+
+        if (x->device == "cpu")
+        {
+            mean_cpu(x->data, result->data, x->shape, dim);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            mean_cuda(x->data, result->data, x->shape, dim);
+#endif
+        }
+        return result;
+    }
+
+    TensorHandle log(const TensorHandle &x)
+    {
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(x->size),
+                                                   x->shape, x->dtype, x->device);
+        if (x->device == "cpu")
+        {
+            log_cpu(x->data, result->data, x->size);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            log_cuda(x->data, result->data, x->size);
+#endif
+        }
+        return result;
+    }
+
+    TensorHandle exp(const TensorHandle &x)
+    {
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(x->size),
+                                                   x->shape, x->dtype, x->device);
+        if (x->device == "cpu")
+        {
+            exp_cpu(x->data, result->data, x->size);
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            exp_cuda(x->data, result->data, x->size);
 #endif
         }
         return result;
@@ -632,6 +706,9 @@ PYBIND11_MODULE(_C, m)
     m.def("sqrt", &tensora::sqrt_op);
     m.def("pow", &tensora::pow_op);
     m.def("sum", &tensora::sum);
+    m.def("mean", &tensora::mean);
+    m.def("log", &tensora::log);
+    m.def("exp", &tensora::exp);
 
     // Activations
     m.def("relu", &tensora::relu);

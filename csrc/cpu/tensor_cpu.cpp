@@ -406,4 +406,58 @@ namespace tensora
         }
     }
 
+    void mean_cpu(const float *in, float *out, const std::vector<int64_t> &shape, int64_t dim)
+    {
+        // Compute mean by summing and dividing by the size of the dimension
+        sum_cpu(in, out, shape, dim);
+
+        int64_t dim_size;
+        int64_t out_size;
+        int64_t ndim = shape.size();
+
+        if (dim == -1)
+        {
+            // Mean of all elements
+            dim_size = 1;
+            for (auto s : shape)
+            {
+                dim_size *= s;
+            }
+            out_size = 1;
+        }
+        else
+        {
+            // Mean over specified dimension
+            dim_size = shape[dim];
+            out_size = 1;
+            for (int64_t i = 0; i < ndim; ++i)
+            {
+                if (i != dim)
+                {
+                    out_size *= shape[i];
+                }
+            }
+        }
+
+        for (int64_t i = 0; i < out_size; ++i)
+        {
+            out[i] /= dim_size;
+        }
+    }
+
+    void log_cpu(const float *in, float *out, int64_t size)
+    {
+        for (int64_t i = 0; i < size; ++i)
+        {
+            out[i] = std::log(in[i]);
+        }
+    }
+
+    void exp_cpu(const float *in, float *out, int64_t size)
+    {
+        for (int64_t i = 0; i < size; ++i)
+        {
+            out[i] = std::exp(in[i]);
+        }
+    }
 } // namespace tensora
