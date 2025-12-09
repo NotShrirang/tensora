@@ -1,5 +1,6 @@
 #include "../cuda/cuda_utils.cuh"
 #include "../tensor_ops.h"
+#include "reduction.cuh"
 #include <vector>
 
 namespace tensora {
@@ -247,13 +248,14 @@ namespace tensora {
     }
 
     void sum_cuda(const float* in, float* out, const std::vector<int64_t> &shape, int64_t dim) {
-        // Placeholder for sum implementation on CUDA
-        // Actual implementation would involve reduction kernels
-        dim3 grid = cuda::get_grid_size(shape[dim]);
-        dim3 block(cuda::BLOCK_SIZE);
-        sqrt_kernel<<<grid, block>>>(in, out, shape[dim]); // Dummy kernel call
-        CUDA_CHECK(cudaGetLastError());
-        CUDA_CHECK(cudaDeviceSynchronize());
+        int64_t reduce_size = shape[dim];
+        int64_t output_size = 1;
+        for (size_t i = 0; i < shape.size(); ++i) {
+            if (i != static_cast<size_t>(dim)) {
+                output_size *= shape[i];
+            }
+        }
+        reduce_sum_cuda(in, out, output_size, reduce_size);
     }
 
     void mean_cuda(const float* in, float* out, const std::vector<int64_t> &shape, int64_t dim) {

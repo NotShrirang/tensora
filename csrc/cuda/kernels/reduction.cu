@@ -1,10 +1,10 @@
 #include "../cuda/cuda_utils.cuh"
 #include "../tensor_ops.h"
+#include "reduction.cuh"
 
 namespace tensora {
 
-__global__ void reduce_sum_kernel(const float* input, float* output, 
-                                   int64_t size, int64_t reduce_size) {
+__global__ void reduce_sum_kernel(const float* input, float* output, int64_t size, int64_t reduce_size) {
     int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     
     if (idx < size) {
@@ -17,8 +17,7 @@ __global__ void reduce_sum_kernel(const float* input, float* output,
     }
 }
 
-__global__ void reduce_max_kernel(const float* input, float* output,
-                                   int64_t size, int64_t reduce_size) {
+__global__ void reduce_max_kernel(const float* input, float* output, int64_t size, int64_t reduce_size) {
     int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     
     if (idx < size) {
@@ -29,6 +28,22 @@ __global__ void reduce_max_kernel(const float* input, float* output,
         }
         output[idx] = max_val;
     }
+}
+
+void reduce_sum_cuda(const float* input, float* output, int64_t size, int64_t reduce_size) {
+    dim3 grid = cuda::get_grid_size(size);
+    dim3 block(cuda::BLOCK_SIZE);
+    reduce_sum_kernel<<<grid, block>>>(input, output, size, reduce_size);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
+}
+
+void reduce_max_cuda(const float* input, float* output, int64_t size, int64_t reduce_size) {
+    dim3 grid = cuda::get_grid_size(size);
+    dim3 block(cuda::BLOCK_SIZE);
+    reduce_max_kernel<<<grid, block>>>(input, output, size, reduce_size);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize());
 }
 
 } // namespace tensora
