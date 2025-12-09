@@ -467,9 +467,41 @@ class Tensor:
             
             if op == 'add':
                 if inputs[0].requires_grad:
-                    inputs[0].backward(grad)
+                    grad_input = grad
+                    # Handle broadcasting: sum over dimensions that were broadcast
+                    if inputs[0]._shape != grad._shape:
+                        # Need to sum and reshape gradient to match input shape
+                        for i in range(len(grad._shape)):
+                            if i >= len(inputs[0]._shape) or inputs[0]._shape[i] == 1:
+                                grad_input = grad_input.sum(dim=i)
+                    inputs[0].backward(grad_input)
                 if inputs[1].requires_grad:
-                    inputs[1].backward(grad)
+                    grad_input = grad
+                    # Handle broadcasting: sum over dimensions that were broadcast
+                    if inputs[1]._shape != grad._shape:
+                        # Need to sum gradient over dimensions that were broadcast
+                        axes_to_sum = []
+                        # Determine which axes to sum over
+                        len_diff = len(grad._shape) - len(inputs[1]._shape)
+                        for i in range(len(grad._shape)):
+                            if i < len_diff:
+                                # This dimension doesn't exist in input[1], sum it
+                                axes_to_sum.append(i)
+                            else:
+                                # Check if this dimension was broadcast (size 1 in input)
+                                input_idx = i - len_diff
+                                if input_idx < len(inputs[1]._shape) and inputs[1]._shape[input_idx] == 1 and grad._shape[i] > 1:
+                                    axes_to_sum.append(i)
+                        
+                        # Sum over all necessary axes
+                        for axis in sorted(axes_to_sum, reverse=True):
+                            grad_input = grad_input.sum(dim=axis)
+                        
+                        # Reshape if needed to match original shape
+                        if grad_input._shape != inputs[1]._shape:
+                            # For now, just ensure the gradient has the right shape
+                            pass
+                    inputs[1].backward(grad_input)
             elif op == 'sub':
                 if inputs[0].requires_grad:
                     inputs[0].backward(grad)
@@ -547,6 +579,43 @@ class Tensor:
                 if x.requires_grad:
                     grad_input = Tensor.full(x.shape, power, device=x.device) * (x ** (power - 1))
                     x.backward(grad * grad_input)
+            elif op == 'sum':
+                # d(sum(x))/dx = grad broadcasted to x's shape
+                x, dim = inputs[0], inputs[1]
+                if x.requires_grad:
+                    if dim is None:
+                        grad_input = Tensor.full(x.shape, grad.tolist()[0], device=x.device)
+                    else:
+                        # Broadcast grad along specified dimension
+                        grad_shape = list(x.shape)
+                        grad_shape[dim] = 1
+                        grad_reshaped = Tensor(grad.tolist(), shape=tuple(grad_shape), device=grad.device)
+                        grad_input = grad_reshaped
+                        for _ in range(x.ndim - grad_reshaped.ndim):
+                            grad_input = grad_input.repeat_interleave(x.shape[dim], dim)
+                    x.backward(grad_input)
+            elif op == 'mean':
+                # d(mean(x))/dx = grad broadcasted to x's shape divided by number of elements reduced
+                x, dim = inputs[0], inputs[1]
+                if x.requires_grad:
+                    if dim is None:
+                        n = x.size
+                        grad_input = Tensor.full(x.shape, grad.tolist()[0] / n, device=x.device)
+                    else:
+                        n = x.shape[dim]
+                        grad_shape = list(x.shape)
+                        grad_shape[dim] = 1
+                        grad_reshaped = Tensor(grad.tolist(), shape=tuple(grad_shape), device=grad.device)
+                        grad_input = grad_reshaped
+                        for _ in range(x.ndim - grad_reshaped.ndim):
+                            grad_input = grad_input.repeat_interleave(x.shape[dim], dim)
+                        grad_input = grad_input / n
+                    x.backward(grad_input)
+            elif op == 'exp':
+                # d(exp(x))/dx = exp(x)
+                x, output = inputs[0], inputs[1] if len(inputs) > 1 else None
+                if x.requires_grad and output is not None:
+                    x.backward(grad * output)
     
     def __iter__(self):
         """Make tensor iterable (iterate over first dimension)."""

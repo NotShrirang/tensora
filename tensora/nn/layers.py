@@ -96,9 +96,9 @@ class Dropout(Module):
         self.p = p
     
     def forward(self, x: Tensor) -> Tensor:
-        if not self.training or self.p == 0:
+        if not self.training or self.p == 0.0:
             return x
-        
+
         # Create dropout mask using Python random for now
         # TODO: Implement in C++ for better performance
         mask_data = []
@@ -118,11 +118,21 @@ class Sequential(Module):
         # Handle both Sequential(layer1, layer2) and Sequential([layer1, layer2])
         if len(layers) == 1 and isinstance(layers[0], (list, tuple)):
             layers = layers[0]
+        if not isinstance(layers, (list, tuple)):
+            raise ValueError("Layers must be provided as a list or tuple")
         
         for idx, layer in enumerate(layers):
+            if not isinstance(layer, Module):
+                raise AttributeError(f"Expected Module instance, got {type(layer)}")
             self._modules[str(idx)] = layer
     
     def forward(self, x: Tensor) -> Tensor:
         for module in self._modules.values():
             x = module(x)
         return x
+    
+    def __getitem__(self, index: int) -> Module:
+        """Get layer by index."""
+        if str(index) not in self._modules:
+            raise IndexError("Index out of range")
+        return self._modules[str(index)]

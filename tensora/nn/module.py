@@ -25,9 +25,15 @@ class Module:
     def parameters(self) -> Iterator[Tensor]:
         """Return iterator over module parameters."""
         for param in self._parameters.values():
-            yield param
+            if param is not None:
+                yield param
+            else:
+                continue
         for module in self._modules.values():
-            yield from module.parameters()
+            if module is not None:
+                yield from module.parameters()
+            else:
+                continue
     
     def named_parameters(self) -> Iterator[Tuple[str, Tensor]]:
         """Return iterator over module parameters with names."""
@@ -77,3 +83,9 @@ class Module:
         """Zero out gradients of all parameters."""
         for param in self.parameters():
             param.grad = None
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} training={self.training} parameters={list(self.parameters())}>"
+    
+    def __str__(self):
+        return self.__repr__()
