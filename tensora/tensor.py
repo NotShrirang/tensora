@@ -86,7 +86,14 @@ class Tensor:
             else:
                 self._c_tensor = None
                 self._data = flat_data  # Fallback for testing before build
-    
+
+    @staticmethod
+    def cuda_is_available() -> bool:
+        """Check if CUDA is available."""
+        if _C:
+            return _C.cuda_is_available()
+        return False
+
     @staticmethod
     def _flatten_data(data):
         """Flatten nested lists and infer shape."""
