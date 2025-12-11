@@ -336,6 +336,47 @@ namespace tensora
         return result;
     }
 
+    TensorHandle matmul_with_shared_memory_cache_blocking(const TensorHandle &a, const TensorHandle &b, float alpha, float beta)
+    {
+        size_t a_dims = a->shape.size();
+        size_t b_dims = b->shape.size();
+
+        int64_t m = a->shape[a_dims - 2];
+        int64_t k = a->shape[a_dims - 1];
+        int64_t n = b->shape[b_dims - 1];
+
+        int64_t batch_size = 1;
+        for (size_t i = 0; i < a_dims - 2; ++i)
+        {
+            batch_size *= a->shape[i];
+        }
+
+        std::vector<int64_t> result_shape;
+        for (size_t i = 0; i < a_dims - 2; ++i)
+        {
+            result_shape.push_back(a->shape[i]);
+        }
+        result_shape.push_back(m);
+        result_shape.push_back(n);
+
+        int64_t result_size = batch_size * m * n;
+        auto result = std::make_shared<TensorImpl>(std::vector<float>(result_size), result_shape, a->dtype, a->device);
+
+        if (a->device == "cuda")
+        {
+#ifdef WITH_CUDA
+            matmul_cuda_shared_memory_cache_blocking_cuda(a->data, b->data, result->data, batch_size, m, n, k, alpha, beta);
+#else
+            throw std::runtime_error("CUDA support not compiled");
+#endif
+        }
+        else
+        {
+            throw std::runtime_error("matmul_with_shared_memory_cache_blocking is only implemented for CUDA tensors");
+        }
+        return result;
+    }
+
     TensorHandle transpose(const TensorHandle &a)
     {
         // Transpose last two dimensions for n-dimensional tensors
@@ -809,6 +850,8 @@ PYBIND11_MODULE(_C, m)
     m.def("matmul", &tensora::matmul);
     m.def("matmul_tiled", &tensora::matmul_tiled);
     m.def("matmul_with_shared_memory_coalescing", &tensora::matmul_with_shared_memory_coalescing,
+          py::arg("a"), py::arg("b"), py::arg("alpha") = 1.0f, py::arg("beta") = 0.0f);
+    m.def("matmul_with_shared_memory_cache_blocking", &tensora::matmul_with_shared_memory_cache_blocking,
           py::arg("a"), py::arg("b"), py::arg("alpha") = 1.0f, py::arg("beta") = 0.0f);
 
     // Utility

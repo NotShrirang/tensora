@@ -407,6 +407,8 @@ class Tensor:
                     return _C.matmul_with_shared_memory_coalescing(a_c_tensor, b_c_tensor, 1.0, 0.0)
                 elif method == "tiled":
                     return _C.matmul_tiled(a_c_tensor, b_c_tensor)
+                elif method == "shared_memory_cache_blocking":
+                    return _C.matmul_with_shared_memory_cache_blocking(a_c_tensor, b_c_tensor, 1.0, 0.0)
                 else:
                     raise ValueError(f"Unknown matmul method: {method}")
         raise RuntimeError("C++ extension not built. Matrix multiplication not available.")
