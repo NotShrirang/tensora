@@ -54,10 +54,11 @@ class Module:
         """Set module to evaluation mode."""
         return self.train(False)
     
-    def cuda(self) -> 'Module':
+    def  cuda(self) -> 'Module':
         """Move all parameters to CUDA."""
         for name, param in self._parameters.items():
-            self._parameters[name] = param.cuda()
+            if param is not None:
+                self._parameters[name] = param.cuda()
         for module in self._modules.values():
             module.cuda()
         return self
@@ -65,7 +66,8 @@ class Module:
     def cpu(self) -> 'Module':
         """Move all parameters to CPU."""
         for name, param in self._parameters.items():
-            self._parameters[name] = param.cpu()
+            if param is not None:
+                self._parameters[name] = param.cpu()
         for module in self._modules.values():
             module.cpu()
         return self

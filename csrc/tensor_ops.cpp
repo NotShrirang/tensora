@@ -342,19 +342,27 @@ namespace tensora
             batch_size *= a->shape[i];
         }
 
-        int64_t matrix_size = rows * cols;
-
-        // Transpose each matrix in the batch
-        for (int64_t batch = 0; batch < batch_size; ++batch)
+        if (a->device == "cpu")
         {
-            for (int64_t i = 0; i < rows; ++i)
+            int64_t matrix_size = rows * cols;
+
+            // Transpose each matrix in the batch
+            for (int64_t batch = 0; batch < batch_size; ++batch)
             {
-                for (int64_t j = 0; j < cols; ++j)
+                for (int64_t i = 0; i < rows; ++i)
                 {
-                    result->data[batch * matrix_size + j * rows + i] =
-                        a->data[batch * matrix_size + i * cols + j];
+                    for (int64_t j = 0; j < cols; ++j)
+                    {
+                        result->data[batch * matrix_size + j * rows + i] = a->data[batch * matrix_size + i * cols + j];
+                    }
                 }
             }
+        }
+        else
+        {
+#ifdef WITH_CUDA
+            transpose_cuda(a->data, result->data, batch_size, rows, cols);
+#endif
         }
 
         return result;

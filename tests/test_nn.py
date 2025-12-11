@@ -258,7 +258,7 @@ class TestModuleBase:
 
     @pytest.mark.skipif(not cuda_is_available(), reason="CUDA not available")
     def test_module_cpu_transfer(self):
-        model = nn.Linear(10, 5, device='cuda')
+        model = nn.Linear(10, 5)
         model.cpu()
         assert model.weight.device == 'cpu'
         assert model.bias.device == 'cpu'

@@ -103,6 +103,21 @@ namespace tensora {
         }
     }
 
+    __global__ void transpose_kernel(const float* in, float* out, int64_t batch_size, int64_t rows, int64_t cols) {
+        int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+        int64_t total_size = batch_size * rows * cols;
+        
+        if (idx < total_size) {
+            int64_t matrix_size = rows * cols;
+            int64_t batch = idx / matrix_size;
+            int64_t local_idx = idx % matrix_size;
+            int64_t i = local_idx / cols;
+            int64_t j = local_idx % cols;
+            
+            out[batch * matrix_size + j * rows + i] = in[idx];
+        }
+    }
+
     void add_cuda(const float* a, const float* b, float* out, int64_t size) {
         dim3 grid = cuda::get_grid_size(size);
         dim3 block(cuda::BLOCK_SIZE);
@@ -323,6 +338,15 @@ namespace tensora {
         dim3 grid = cuda::get_grid_size(size);
         dim3 block(cuda::BLOCK_SIZE);
         exp_kernel<<<grid, block>>>(in, out, size);
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
+    }
+
+    void transpose_cuda(const float* in, float* out, int64_t batch_size, int64_t rows, int64_t cols) {
+        int64_t total_size = batch_size * rows * cols;
+        dim3 grid = cuda::get_grid_size(total_size);
+        dim3 block(cuda::BLOCK_SIZE);
+        transpose_kernel<<<grid, block>>>(in, out, batch_size, rows, cols);
         CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
     }
