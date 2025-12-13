@@ -270,6 +270,10 @@ class Tensor:
     def __radd__(self, other: Union['Tensor', float, int]) -> 'Tensor':
         """Right-hand element-wise addition."""
         return self.__add__(other)
+    
+    def __rmul__(self, other: Union['Tensor', float]) -> 'Tensor':
+        """Right-hand element-wise multiplication."""
+        return self.__mul__(other)
 
     def __mul__(self, other: Union['Tensor', float]) -> 'Tensor':
         """Element-wise multiplication."""

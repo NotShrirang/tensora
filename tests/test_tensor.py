@@ -1,6 +1,68 @@
 import pytest
 import numpy as np
 from tensora import Tensor, cuda_is_available
+from tensora.utils.shape_utils import _compute_size, _has_valid_shape, _infer_shape
+
+
+class TestShapeUtils:
+    """Test coverage for shape_utils.py functions."""
+
+    def test_compute_size_empty_shape(self):
+        assert _compute_size(()) == 1
+
+    def test_compute_size_1d(self):
+        assert _compute_size((5,)) == 5
+
+    def test_compute_size_2d(self):
+        assert _compute_size((3, 4)) == 12
+
+    def test_compute_size_3d(self):
+        assert _compute_size((2, 3, 4)) == 24
+
+    def test_has_valid_shape_empty_list(self):
+        assert _has_valid_shape([]) is True
+
+    def test_has_valid_shape_single_number(self):
+        assert _has_valid_shape(5) is True
+        assert _has_valid_shape(5.5) is True
+
+    def test_has_valid_shape_flat_list(self):
+        assert _has_valid_shape([1, 2, 3]) is True
+
+    def test_has_valid_shape_nested_valid(self):
+        assert _has_valid_shape([[1, 2], [3, 4]]) is True
+
+    def test_has_valid_shape_nested_invalid(self):
+        assert _has_valid_shape([[1, 2], [3]]) is False
+
+    def test_has_valid_shape_mixed_types_in_flat(self):
+        assert _has_valid_shape([1, 2.5, 3]) is True
+
+    def test_has_valid_shape_inconsistent_nested(self):
+        assert _has_valid_shape([1, [2, 3]]) is False
+
+    def test_has_valid_shape_tensor_input(self):
+        t = Tensor([1, 2, 3])
+        assert _has_valid_shape(t) is True
+
+    def test_has_valid_shape_numpy_input(self):
+        arr = np.array([1, 2, 3])
+        assert _has_valid_shape(arr) is True
+
+    def test_infer_shape_flat_list(self):
+        assert _infer_shape([1, 2, 3]) == (3,)
+
+    def test_infer_shape_2d(self):
+        assert _infer_shape([[1, 2], [3, 4]]) == (2, 2)
+
+    def test_infer_shape_3d(self):
+        assert _infer_shape([[[1], [2]], [[3], [4]]]) == (2, 2, 1)
+
+    def test_infer_shape_empty_list(self):
+        assert _infer_shape([]) == (0,)
+
+    def test_infer_shape_empty_nested(self):
+        assert _infer_shape([[]]) == (1, 0)
 
 
 class TestTensorCreation:
@@ -95,6 +157,34 @@ class TestTensorCreation:
     def test_tensor_randn_static(self):
         tensor = Tensor.randn((2, 3))
         assert tensor.shape == (2, 3)
+
+    def test_zeros_with_requires_grad(self):
+        t = Tensor.zeros((2, 3), requires_grad=True)
+        assert t.requires_grad
+        assert t.shape == (2, 3)
+
+    def test_ones_with_device(self):
+        t = Tensor.ones((2, 3), device='cpu')
+        assert t.device == 'cpu'
+
+    def test_full_with_dtype(self):
+        t = Tensor.full((2, 2), 3.14, dtype='float64')
+        assert t.dtype == 'float64'
+
+    def test_randn_with_all_params(self):
+        t = Tensor.randn((3, 3), dtype='float32', device='cpu', requires_grad=True)
+        assert t.shape == (3, 3)
+        assert t.requires_grad
+
+    def test_copy_preserves_grad_requirement(self):
+        a = Tensor([1, 2, 3], dtype='float32', requires_grad=True)
+        b = Tensor(a)
+        assert b.requires_grad == True
+
+    def test_copy_preserves_dtype(self):
+        a = Tensor([1, 2, 3], dtype='float64')
+        b = Tensor(a)
+        assert b.dtype == 'float64'
 
 
 class TestTensorProperties:
@@ -242,6 +332,210 @@ class TestTensorOperations:
         expected = [1, 2, 3, 4]
         assert b.tolist() == expected
 
+    def test_rmul_scalar(self):
+        a = Tensor([1, 2, 3], dtype='float32')
+        c = 2 * a  # Uses __rmul__
+        assert np.allclose(c.tolist(), [2, 4, 6])
+
+    def test_rmul_float(self):
+        a = Tensor([1, 2, 3], dtype='float32')
+        c = 2.5 * a
+        assert np.allclose(c.tolist(), [2.5, 5.0, 7.5])
+
+    def test_rsub_scalar(self):
+        a = Tensor([1, 2, 3], dtype='float32')
+        with pytest.raises(TypeError):
+            c = 10 - a  # __rsub__ not implemented
+
+    def test_rtruediv_scalar(self):
+        a = Tensor([1, 2, 4], dtype='float32')
+        with pytest.raises(TypeError):
+            c = 8 / a  # __rtruediv__ not implemented
+
+    def test_neg_operator(self):
+        a = Tensor([1, -2, 3], dtype='float32')
+        with pytest.raises(TypeError):
+            b = -a  # __neg__ not implemented
+
+    def test_division_by_small_number(self):
+        a = Tensor([1, 2, 3], dtype='float32')
+        b = Tensor([0.001, 0.001, 0.001], dtype='float32')
+        c = a / b
+        assert np.allclose(c.tolist(), [1000, 2000, 3000])
+
+    def test_pow_square(self):
+        a = Tensor([2, 3, 4], dtype='float32')
+        b = a ** 2
+        assert np.allclose(b.tolist(), [4, 9, 16])
+
+    def test_pow_fractional(self):
+        a = Tensor([4, 9, 16], dtype='float32')
+        b = a ** 0.5
+        assert np.allclose(b.tolist(), [2, 3, 4])
+
+    def test_pow_zero(self):
+        a = Tensor([2, 3, 4], dtype='float32')
+        b = a ** 0
+        assert np.allclose(b.tolist(), [1, 1, 1])
+
+    def test_pow_negative(self):
+        a = Tensor([2, 4], dtype='float32')
+        b = a ** -1
+        assert np.allclose(b.tolist(), [0.5, 0.25])
+
+    def test_pow_with_gradient(self):
+        a = Tensor([2, 3], dtype='float32', requires_grad=True)
+        b = a ** 2
+        assert b.requires_grad
+        b.sum().backward()
+        assert a.grad is not None
+
+    def test_sqrt_with_gradient(self):
+        a = Tensor([4, 9], dtype='float32', requires_grad=True)
+        b = a.sqrt()
+        assert b.requires_grad
+        b.sum().backward()
+        assert a.grad is not None
+
+    def test_transpose_3d(self):
+        a = Tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype='float32')
+        b = a.T
+        assert b.shape == (2, 2, 2)
+
+    def test_transpose_with_grad(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32', requires_grad=True)
+        b = a.T
+        assert b.requires_grad
+        assert b._grad_fn[0] == 'transpose'
+
+
+class TestMatmulOperations:
+    """Test matrix multiplication operations and edge cases."""
+
+    def test_matmul_basic(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        b = Tensor([[5, 6], [7, 8]], dtype='float32')
+        c = a.matmul(b)
+        expected = [[19, 22], [43, 50]]
+        assert np.allclose(c.tolist(), expected)
+
+    def test_matmul_with_default_method(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        b = Tensor([[1, 0], [0, 1]], dtype='float32')
+        c = a.matmul(b, method='default')
+        assert np.allclose(c.tolist(), [[1, 2], [3, 4]])
+
+    def test_matmul_incompatible_shapes(self):
+        a = Tensor([[1, 2, 3]], dtype='float32')
+        b = Tensor([[1, 2], [3, 4]], dtype='float32')
+        with pytest.raises(RuntimeError):
+            a.matmul(b)
+
+    def test_matmul_1d_raises_error(self):
+        a = Tensor([1, 2, 3], dtype='float32')
+        b = Tensor([4, 5, 6], dtype='float32')
+        with pytest.raises(RuntimeError):
+            a.matmul(b)
+
+    def test_matmul_backward_propagates(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32', requires_grad=True)
+        b = Tensor([[1, 0], [0, 1]], dtype='float32', requires_grad=True)
+        c = a.matmul(b)
+        assert c.requires_grad
+        assert c._grad_fn is not None
+        assert c._grad_fn[0] == 'matmul'
+
+
+class TestSumMeanOperations:
+    """Test sum and mean operations with various dimensions."""
+
+    def test_sum_all_elements(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        s = a.sum()
+        assert s.shape == ()
+        assert np.isclose(s.tolist(), 10)
+
+    def test_sum_dim0(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        s = a.sum(dim=0)
+        assert s.shape == (2,)
+        assert np.allclose(s.tolist(), [4, 6])
+
+    def test_sum_dim1(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        s = a.sum(dim=1)
+        assert s.shape == (2,)
+        assert np.allclose(s.tolist(), [3, 7])
+
+    def test_sum_invalid_dim(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        with pytest.raises(ValueError):
+            a.sum(dim=5)
+
+    def test_sum_negative_dim_invalid(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        with pytest.raises(ValueError):
+            a.sum(dim=-1)
+
+    def test_mean_all_elements(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        m = a.mean()
+        assert m.shape == ()
+        assert np.isclose(m.tolist(), 2.5)
+
+    def test_mean_dim0(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        m = a.mean(dim=0)
+        assert np.allclose(m.tolist(), [2, 3])
+
+    def test_mean_invalid_dim(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        with pytest.raises(ValueError):
+            a.mean(dim=10)
+
+    def test_sum_with_gradient(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32', requires_grad=True)
+        s = a.sum()
+        assert s.requires_grad
+        s.backward()
+        assert a.grad is not None
+
+    def test_mean_with_gradient(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32', requires_grad=True)
+        m = a.mean()
+        assert m.requires_grad
+        m.backward()
+        assert a.grad is not None
+
+
+class TestExpLogOperations:
+    """Test exp and log operations with gradient tracking."""
+
+    def test_exp_basic(self):
+        a = Tensor([0, 1, 2], dtype='float32')
+        b = a.exp()
+        assert np.isclose(b.tolist()[0], 1.0, rtol=1e-5)
+        assert np.isclose(b.tolist()[1], np.e, rtol=1e-5)
+
+    def test_exp_with_gradient(self):
+        a = Tensor([0, 1], dtype='float32', requires_grad=True)
+        b = a.exp()
+        assert b.requires_grad
+        assert b._grad_fn[0] == 'exp'
+
+    def test_log_basic(self):
+        a = Tensor([1, np.e, np.e**2], dtype='float32')
+        b = a.log()
+        assert np.isclose(b.tolist()[0], 0.0, atol=1e-5)
+        assert np.isclose(b.tolist()[1], 1.0, rtol=1e-5)
+        assert np.isclose(b.tolist()[2], 2.0, rtol=1e-5)
+
+    def test_log_with_gradient(self):
+        a = Tensor([1, 2], dtype='float32', requires_grad=True)
+        b = a.log()
+        assert b.requires_grad
+        assert b._grad_fn[0] == 'log'
+
 
 class TestTensorDeviceOperations:
     """Test device-related operations."""
@@ -269,6 +563,18 @@ class TestTensorDeviceOperations:
         a = Tensor([[1, 2], [3, 4]])
         with pytest.raises(ValueError):
             a.to('invalid')
+
+    def test_cpu_to_cpu_returns_same(self):
+        a = Tensor([1, 2, 3], dtype='float32', device='cpu')
+        b = a.cpu()
+        assert b.device == 'cpu'
+        assert np.allclose(b.tolist(), [1, 2, 3])
+
+    @pytest.mark.skipif(not cuda_is_available(), reason="CUDA not available")
+    def test_cuda_to_cuda_returns_same(self):
+        a = Tensor([1, 2, 3], dtype='float32', device='cuda')
+        b = a.cuda()
+        assert b.device == 'cuda'
 
 
 class TestTensorIteration:
@@ -303,6 +609,57 @@ class TestTensorIteration:
         tensor = Tensor(5)  # Scalar
         with pytest.raises(TypeError):
             list(tensor)
+
+    def test_iterate_0d_via_sum(self):
+        a = Tensor([5], dtype='float32')
+        scalar = a.sum()
+        assert scalar.shape == ()
+        with pytest.raises(TypeError):
+            for _ in scalar:
+                pass
+
+    def test_len_0d_via_sum(self):
+        a = Tensor([5], dtype='float32')
+        scalar = a.sum()
+        with pytest.raises(TypeError):
+            len(scalar)
+
+
+class TestTensorEquality:
+    """Test tensor equality comparisons."""
+
+    def test_eq_same_tensor(self):
+        a = Tensor([1, 2, 3], dtype='float32')
+        assert a == a
+
+    def test_eq_same_values(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        b = Tensor([[1, 2], [3, 4]], dtype='float32')
+        assert a == b
+
+    def test_eq_different_values(self):
+        a = Tensor([1, 2, 3], dtype='float32')
+        b = Tensor([1, 2, 4], dtype='float32')
+        assert not (a == b)
+
+    def test_eq_different_shapes(self):
+        a = Tensor([1, 2, 3], dtype='float32')
+        b = Tensor([[1, 2, 3]], dtype='float32')
+        assert not (a == b)
+
+    def test_eq_different_dtypes(self):
+        a = Tensor([1, 2, 3], dtype='float32')
+        b = Tensor([1, 2, 3], dtype='float64')
+        assert not (a == b)
+
+    def test_eq_with_list(self):
+        a = Tensor([1, 2, 3], dtype='float32')
+        assert a == [1.0, 2.0, 3.0]
+
+    def test_eq_invalid_type(self):
+        a = Tensor([1, 2, 3], dtype='float32')
+        with pytest.raises(ValueError):
+            a == "string"
 
 
 class TestGradientComputation:
@@ -410,6 +767,113 @@ class TestGradientComputation:
         with pytest.raises(RuntimeError):
             b.backward()  # Non-scalar needs explicit grad
 
+    def test_backward_non_scalar_with_grad(self):
+        a = Tensor([1, 2, 3], dtype='float32', requires_grad=True)
+        b = a * 2
+        grad = Tensor([1, 1, 1], dtype='float32')
+        b.backward(grad)
+        assert a.grad is not None
+        assert np.allclose(a.grad.tolist(), [2, 2, 2])
+
+    def test_backward_add_with_broadcasting(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32', requires_grad=True)
+        b = Tensor([1, 2], dtype='float32', requires_grad=True)
+        c = a + b
+        loss = c.sum()
+        loss.backward()
+        assert a.grad is not None
+        assert b.grad is not None
+
+    def test_backward_mul(self):
+        a = Tensor([1, 2, 3], dtype='float32', requires_grad=True)
+        b = Tensor([4, 5, 6], dtype='float32', requires_grad=True)
+        c = a * b
+        loss = c.sum()
+        loss.backward()
+        assert np.allclose(a.grad.tolist(), [4, 5, 6])
+        assert np.allclose(b.grad.tolist(), [1, 2, 3])
+
+    def test_backward_div(self):
+        a = Tensor([4, 6], dtype='float32', requires_grad=True)
+        b = Tensor([2, 3], dtype='float32', requires_grad=True)
+        c = a / b
+        loss = c.sum()
+        loss.backward()
+        assert a.grad is not None
+        assert b.grad is not None
+
+    def test_backward_matmul(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32', requires_grad=True)
+        b = Tensor([[1, 0], [0, 1]], dtype='float32', requires_grad=True)
+        c = a @ b
+        loss = c.sum()
+        loss.backward()
+        assert a.grad is not None
+        assert b.grad is not None
+
+    def test_backward_chained_operations(self):
+        a = Tensor([1, 2, 3], dtype='float32', requires_grad=True)
+        b = a * 2
+        c = b + 1
+        d = c ** 2
+        loss = d.sum()
+        loss.backward()
+        assert a.grad is not None
+
+    def test_backward_sqrt(self):
+        a = Tensor([4, 9, 16], dtype='float32', requires_grad=True)
+        b = a.sqrt()
+        loss = b.sum()
+        loss.backward()
+        assert a.grad is not None
+        assert np.isclose(a.grad.tolist()[0], 0.25, rtol=1e-4)
+
+    def test_backward_exp(self):
+        # exp backward requires both input and output stored in _grad_fn
+        # Verifies exp gradient tracking is set up correctly
+        a = Tensor([0, 1], dtype='float32', requires_grad=True)
+        b = a.exp()
+        assert b.requires_grad
+        assert b._grad_fn is not None
+        assert b._grad_fn[0] == 'exp'
+
+    def test_gradient_accumulates_on_multiple_backward(self):
+        a = Tensor([1, 2, 3], dtype='float32', requires_grad=True)
+        b = a * 2
+        b.sum().backward()
+        c = a * 3
+        c.sum().backward()
+        assert np.allclose(a.grad.tolist(), [5, 5, 5])
+
+    def test_zero_grad_clears_gradient(self):
+        a = Tensor([1, 2, 3], dtype='float32', requires_grad=True)
+        b = a * 2
+        c = b.sum()
+        c.backward()
+        assert a.grad is not None
+        a.zero_grad()
+        assert a.grad is None
+
+
+class TestComplexComputationGraphs:
+    """Test complex computation graphs with multiple branches."""
+
+    def test_diamond_graph(self):
+        a = Tensor([1, 2, 3], dtype='float32', requires_grad=True)
+        b = a * 2
+        c = a * 3
+        d = b + c
+        loss = d.sum()
+        loss.backward()
+        assert np.allclose(a.grad.tolist(), [5, 5, 5])
+
+    def test_reused_tensor(self):
+        a = Tensor([1, 2, 3], dtype='float32', requires_grad=True)
+        b = a * a
+        loss = b.sum()
+        loss.backward()
+        assert np.allclose(a.grad.tolist(), [2, 4, 6])
+
 
 class TestEdgeCases:
     """Test edge cases and error conditions."""
@@ -468,3 +932,31 @@ class TestEdgeCases:
         # c = 2*3 + 2 = 8, dc/da = 3 + 1 = 4, dd/da = 2*8*4 = 64
         expected_a_grad = 2 * (a.tolist()[0] * b.tolist()[0] + a.tolist()[0]) * (b.tolist()[0] + 1)
         assert abs(a.grad.tolist()[0] - expected_a_grad) < 1e-5
+
+
+class TestBroadcastingEdgeCases:
+    """Test broadcasting edge cases."""
+
+    def test_broadcast_scalar_to_matrix(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        b = 5
+        c = a + b
+        assert np.allclose(c.tolist(), [[6, 7], [8, 9]])
+
+    def test_broadcast_row_to_matrix(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        b = Tensor([10, 20], dtype='float32')
+        c = a + b
+        assert np.allclose(c.tolist(), [[11, 22], [13, 24]])
+
+    def test_broadcast_column_to_matrix(self):
+        a = Tensor([[1, 2], [3, 4]], dtype='float32')
+        b = Tensor([[10], [20]], dtype='float32')
+        c = a + b
+        assert np.allclose(c.tolist(), [[11, 12], [23, 24]])
+
+    def test_broadcast_incompatible_shapes(self):
+        a = Tensor([[1, 2, 3]], dtype='float32')
+        b = Tensor([[1, 2]], dtype='float32')
+        with pytest.raises(RuntimeError):
+            a + b

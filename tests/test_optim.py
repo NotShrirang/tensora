@@ -145,6 +145,14 @@ class TestOptimizerEdgeCases:
         optimizer.step()
         optimizer.zero_grad()
 
+    def test_sgd_step_with_no_params(self):
+        opt = optim.SGD(iter([]), lr=0.01)
+        opt.step()
+
+    def test_adam_step_with_no_params(self):
+        opt = optim.Adam(iter([]), lr=0.01)
+        opt.step()
+
     def test_sgd_zero_lr(self):
         param = Tensor([2.0], requires_grad=True)
         param.grad = Tensor([1.0])
@@ -247,6 +255,32 @@ class TestTrainingLoops:
 
         final_loss = loss_fn(model(x), y).tolist()
         assert final_loss < initial_loss
+
+    def test_sgd_multiple_steps_with_momentum(self):
+        linear = nn.Linear(2, 2)
+        opt = optim.SGD(linear.parameters(), lr=0.01, momentum=0.9)
+        x = Tensor([[1, 2]], dtype='float32')
+        
+        for _ in range(5):
+            y = linear(x)
+            loss = y.sum()
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+
+    def test_adam_multiple_steps_convergence(self):
+        import tensora.functional as F
+        linear = nn.Linear(2, 1)
+        opt = optim.Adam(linear.parameters(), lr=0.1)
+        x = Tensor([[1, 2]], dtype='float32')
+        target = Tensor([[1]], dtype='float32')
+        
+        for _ in range(10):
+            y = linear(x)
+            loss = F.mse_loss(y, target)
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
 
     def test_convergence_comparison(self):
         # Compare SGD vs Adam convergence

@@ -53,6 +53,18 @@ class TestLinearLayer:
         assert len(params) == 1  # only weight
         assert params[0].size == 50  # 10 * 5
 
+    def test_linear_very_small_dimensions(self):
+        linear = nn.Linear(1, 1)
+        x = Tensor([[5]], dtype='float32')
+        y = linear(x)
+        assert y.shape == (1, 1)
+
+    def test_linear_large_batch(self):
+        linear = nn.Linear(10, 5)
+        x = Tensor.randn((100, 10))
+        y = linear(x)
+        assert y.shape == (100, 5)
+
 
 class TestActivationLayers:
     """Test activation function layers."""
@@ -141,6 +153,14 @@ class TestDropoutLayer:
         with pytest.raises(ValueError):
             nn.Dropout(p=-0.1)
 
+    def test_dropout_p_boundary(self):
+        with pytest.raises(ValueError):
+            nn.Dropout(p=1.0)
+
+    def test_dropout_negative_p(self):
+        with pytest.raises(ValueError):
+            nn.Dropout(p=-0.1)
+
 
 class TestSequential:
     """Test sequential container."""
@@ -180,6 +200,22 @@ class TestSequential:
         x = Tensor([[1, 2, 3]], dtype='float32')
         y = model(x)
         assert y.tolist() == x.tolist()
+
+    def test_sequential_getitem_valid(self):
+        seq = nn.Sequential(nn.Linear(10, 5), nn.ReLU(), nn.Linear(5, 2))
+        layer = seq[0]
+        assert isinstance(layer, nn.Linear)
+
+    def test_sequential_getitem_out_of_range(self):
+        seq = nn.Sequential(nn.Linear(10, 5), nn.ReLU())
+        with pytest.raises(IndexError):
+            _ = seq[10]
+
+    def test_sequential_empty_forward(self):
+        seq = nn.Sequential()
+        x = Tensor([[1, 2, 3]], dtype='float32')
+        y = seq(x)
+        assert y == x
 
 
 class TestModuleBase:
@@ -272,6 +308,36 @@ class TestModuleBase:
         model = nn.Linear(10, 5)
         with pytest.raises(ValueError):
             model.to('invalid')
+
+    def test_parameters_with_none_values(self):
+        linear = nn.Linear(10, 5, bias=False)
+        params = list(linear.parameters())
+        assert len(params) == 1
+
+    def test_nested_module_parameters_count(self):
+        seq = nn.Sequential(nn.Linear(10, 5), nn.Linear(5, 2))
+        params = list(seq.parameters())
+        assert len(params) == 4
+
+
+class TestModuleReprStr:
+    """Test Module __repr__ and __str__ methods."""
+
+    def test_module_repr(self):
+        linear = nn.Linear(10, 5)
+        repr_str = repr(linear)
+        assert 'Linear' in repr_str
+        assert 'training=' in repr_str
+
+    def test_module_str(self):
+        linear = nn.Linear(10, 5)
+        str_repr = str(linear)
+        assert 'Linear' in str_repr
+
+    def test_sequential_repr(self):
+        seq = nn.Sequential(nn.Linear(10, 5), nn.ReLU())
+        repr_str = repr(seq)
+        assert 'Sequential' in repr_str
 
 
 class TestComplexNetworks:
@@ -381,3 +447,29 @@ class TestEdgeCases:
         assert not model.training
         model.train()
         assert model.training
+
+
+class TestTrainEvalModes:
+    """Test train/eval mode switching."""
+
+    def test_dropout_train_vs_eval(self):
+        dropout = nn.Dropout(p=0.5)
+        x = Tensor.ones((100,))
+        
+        dropout.train()
+        y_train = dropout(x)
+        
+        dropout.eval()
+        y_eval = dropout(x)
+        
+        assert np.allclose(y_eval.tolist(), x.tolist())
+
+    def test_nested_module_train_eval(self):
+        seq = nn.Sequential(nn.Linear(10, 5), nn.Dropout(0.5), nn.Linear(5, 2))
+        seq.eval()
+        assert seq.training is False
+        for module in seq._modules.values():
+            assert module.training is False
+
+        seq.train()
+        assert seq.training is True

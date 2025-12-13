@@ -178,6 +178,19 @@ class TestLossFunctions:
         expected_grad = [[-1, -1]]
         assert pred.grad.tolist() == expected_grad
 
+    def test_mse_loss_shape_mismatch(self):
+        pred = Tensor([[1, 2]], dtype='float32')
+        target = Tensor([1, 2, 3], dtype='float32')
+        with pytest.raises(RuntimeError):
+            F.mse_loss(pred, target)
+
+    def test_mse_loss_gradient_zero_when_equal(self):
+        pred = Tensor([1, 2, 3], dtype='float32', requires_grad=True)
+        target = Tensor([1, 2, 3], dtype='float32')
+        loss = F.mse_loss(pred, target)
+        loss.backward()
+        assert np.allclose(pred.grad.tolist(), [0, 0, 0], atol=1e-5)
+
     def test_cross_entropy_loss(self):
         pred = Tensor([[0.7, 0.2, 0.1]], dtype='float32')
         target = Tensor([[0, 0, 1]], dtype='float32')
@@ -193,6 +206,26 @@ class TestLossFunctions:
 
         assert loss.shape == ()
         assert abs(loss.tolist() - 1.2679495811462402) < 1e-5
+
+    def test_cross_entropy_loss_basic(self):
+        pred = Tensor([[0.7, 0.2, 0.1]], dtype='float32', requires_grad=True)
+        target = Tensor([[1, 0, 0]], dtype='float32')
+        loss = F.cross_entropy_loss(pred, target)
+        assert loss.shape == ()
+        assert loss.requires_grad
+
+    def test_cross_entropy_from_logits_basic(self):
+        logits = Tensor([[2.0, 1.0, 0.1]], dtype='float32', requires_grad=True)
+        targets = Tensor([0], dtype='float32')
+        loss = F.cross_entropy_from_logits(logits, targets)
+        assert loss.shape == ()
+        assert loss.requires_grad
+
+    def test_cross_entropy_from_logits_no_reduce(self):
+        logits = Tensor([[2.0, 1.0, 0.1], [0.5, 2.5, 0.0]], dtype='float32')
+        targets = Tensor([0, 1], dtype='float32')
+        loss = F.cross_entropy_from_logits(logits, targets, reduce_mean=False)
+        assert loss.shape == (2,)
 
 class TestUnimplementedFunctions:
     """Test functions that are not yet implemented."""
@@ -247,3 +280,53 @@ class TestFunctionalEdgeCases:
         z = F.sigmoid(y)
         z.backward(Tensor([[1, 1]], dtype='float32'))
         assert x.grad is not None
+
+
+class TestSoftmaxEdgeCases:
+    """Test softmax edge cases."""
+
+    def test_softmax_dim_0(self):
+        x = Tensor([[1, 2], [3, 4]], dtype='float32')
+        y = F.softmax(x, dim=0)
+        col_sums = y.sum(dim=0).tolist()
+        assert np.allclose(col_sums, [1, 1], rtol=1e-5)
+
+    def test_softmax_negative_dim(self):
+        x = Tensor([[1, 2, 3]], dtype='float32')
+        y = F.softmax(x, dim=-1)
+        row_sum = y.sum(dim=1).tolist()[0]
+        assert np.isclose(row_sum, 1.0, rtol=1e-5)
+
+
+class TestActivationGradients:
+    """Test activation function gradients."""
+
+    def test_relu_gradient_positive(self):
+        x = Tensor([1, 2, 3], dtype='float32', requires_grad=True)
+        y = F.relu(x)
+        y.sum().backward()
+        assert np.allclose(x.grad.tolist(), [1, 1, 1])
+
+    def test_relu_gradient_negative(self):
+        x = Tensor([-1, -2, -3], dtype='float32', requires_grad=True)
+        y = F.relu(x)
+        y.sum().backward()
+        assert np.allclose(x.grad.tolist(), [0, 0, 0])
+
+    def test_relu_gradient_mixed(self):
+        x = Tensor([-1, 0, 1], dtype='float32', requires_grad=True)
+        y = F.relu(x)
+        y.sum().backward()
+        assert x.grad is not None
+
+    def test_sigmoid_gradient(self):
+        x = Tensor([0], dtype='float32', requires_grad=True)
+        y = F.sigmoid(x)
+        y.backward()
+        assert np.isclose(x.grad.tolist()[0], 0.25, rtol=1e-4)
+
+    def test_tanh_gradient(self):
+        x = Tensor([0], dtype='float32', requires_grad=True)
+        y = F.tanh(x)
+        y.backward()
+        assert np.isclose(x.grad.tolist()[0], 1.0, rtol=1e-4)
