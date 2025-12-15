@@ -40,6 +40,14 @@ Run: `python examples/cuda_example.py` (requires GPU)
 
 Install Tensorax first:
 
+**From PyPI:**
+
+```bash
+pip install tensorax
+```
+
+**From Source:**
+
 ```bash
 pip install -e .
 ```

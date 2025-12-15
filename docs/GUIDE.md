@@ -22,6 +22,14 @@ Tensorax has achieved production-ready status with:
 
 ### Installation
 
+**From PyPI (Recommended):**
+
+```bash
+pip install tensorax
+```
+
+**From Source:**
+
 ```bash
 # Clone the repository
 git clone https://github.com/NotShrirang/tensorax.git

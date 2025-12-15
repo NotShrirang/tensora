@@ -157,6 +157,14 @@ tensorax/
 
 ### Installation
 
+**From PyPI:**
+
+```bash
+pip install tensorax
+```
+
+**From Source:**
+
 ```bash
 # Clone repository
 git clone https://github.com/NotShrirang/tensorax.git

@@ -4,7 +4,8 @@
 
 Built from scratch for deep learning and numerical computing with blazing-fast GPU acceleration.
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PyPI version](https://img.shields.io/pypi/v/tensorax.svg)](https://pypi.org/project/tensorax/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CUDA](https://img.shields.io/badge/CUDA-11.0+-green.svg)](https://developer.nvidia.com/cuda-toolkit)
 [![CI](https://github.com/NotShrirang/tensorax/workflows/Tests/badge.svg)](https://github.com/NotShrirang/tensorax/actions/workflows/tests.yml)
@@ -52,6 +53,14 @@ Unlike other libraries that wrap PyTorch or depend on NumPy, Tensorax is built *
 
 ### Quick Install
 
+**From PyPI:**
+
+```bash
+pip install tensorax
+```
+
+**From Source:**
+
 ```bash
 git clone https://github.com/NotShrirang/tensorax.git
 cd tensorax
@@ -69,9 +78,11 @@ python setup.py build_ext --inplace
 CUDA_HOME=/usr/local/cuda python setup.py build_ext --inplace
 ```
 
-### PyPI / Astral UV
+### From PyPI
 
-Coming Soon! (Contributions are welcome!)
+```bash
+pip install tensorax
+```
 
 ## 🚀 Quick Start
 
