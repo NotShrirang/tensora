@@ -361,7 +361,7 @@ class Tensor:
         
         Args:
             other: Another tensor to multiply with
-            method: Method for CUDA matmul. Options: ('default', 'shared_memory_coalesced', 'tiled', 'shared_memory_cache_blocking', 'block_tiling_1d')
+            method: Method for CUDA matmul. Options: ('default', 'shared_memory_coalesced', 'tiled', 'shared_memory_cache_blocking', 'block_tiling_1d', 'block_tiling_2d')
 
         Returns:
             Resulting tensor from matrix multiplication
@@ -415,6 +415,8 @@ class Tensor:
                     return _C.matmul_with_shared_memory_cache_blocking(a_c_tensor, b_c_tensor, 1.0, 0.0)
                 elif method == "block_tiling_1d":
                     return _C.matmul_with_1d_blocktiling(a_c_tensor, b_c_tensor, 1.0, 0.0)
+                elif method == "block_tiling_2d":
+                    return _C.matmul_with_2d_blocktiling(a_c_tensor, b_c_tensor, 1.0, 0.0)
                 else:
                     raise ValueError(f"Unknown matmul method: {method}")
         raise RuntimeError("C++ extension not built. Matrix multiplication not available.")
@@ -440,7 +442,7 @@ class Tensor:
         result.grad = None
         
         if _C:
-            result._c_tensor = self._internal_matmul(self._c_tensor, other._c_tensor)
+            result._c_tensor = self._internal_matmul(self._c_tensor, other._c_tensor, method="block_tiling_2d")
         
         if self.requires_grad or other.requires_grad:
             result.requires_grad = True

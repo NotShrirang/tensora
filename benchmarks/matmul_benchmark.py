@@ -50,6 +50,13 @@ def matmul_1d_block_tiling():
     torch.cuda.synchronize()
     return c
 
+# Benchmarking matmul with 2D block tiling
+def matmul_2d_block_tiling():
+    torch.cuda.synchronize()
+    c = a_t.matmul(b_t, method="block_tiling_2d")
+    torch.cuda.synchronize()
+    return c
+
 def matmul_numpy():
     c_np = np.matmul(a_np, b_np)
     return c_np
@@ -68,6 +75,7 @@ matmul_shared_memory_coalesced()
 matmul_tiled()
 matmul_cache_blocking()
 matmul_1d_block_tiling()
+matmul_2d_block_tiling()
 matmul_numpy()
 matmul_pytorch()
 print("Warm-up done.")
@@ -88,6 +96,9 @@ print(f"Tiled matmul time over {times} runs: {time_tiled} seconds")
 
 time_1d_block_tiling = timeit.timeit(matmul_1d_block_tiling, number=times)
 print(f"Matmul with 1D block tiling time over {times} runs: {time_1d_block_tiling} seconds")
+
+time_2d_block_tiling = timeit.timeit(matmul_2d_block_tiling, number=times)
+print(f"Matmul with 2D block tiling time over {times} runs: {time_2d_block_tiling} seconds")
 
 time_numpy = timeit.timeit(matmul_numpy, number=times)
 print(f"Numpy matmul time over {times} runs: {time_numpy} seconds")
