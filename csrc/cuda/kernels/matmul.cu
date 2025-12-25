@@ -212,17 +212,13 @@ namespace tensorax {
         float registerB[TN] = {0.0f};
 
         for (uint bkIdx = 0; bkIdx < k; bkIdx += BK) {
-            for (uint loadIdx = 0; loadIdx < numThreadsBlocktile; loadIdx += strideA) {
-                uint idx = loadIdx + threadIdx.x;
-                uint row = idx / BK;
-                uint col = idx % BK;
-                shared_a[row * BK + col] = a[row * k + col];
+            for (uint loadOffset = 0; loadOffset < BM; loadOffset += strideA) {
+                shared_a[(innerRowA + loadOffset) * BK + innerColA] =
+                    a[(innerRowA + loadOffset) * k + innerColA];
             }
-            for (uint loadIdx = 0; loadIdx < numThreadsBlocktile; loadIdx += strideB) {
-                uint idx = loadIdx + threadIdx.x;
-                uint row = idx / BN;
-                uint col = idx % BN;
-                shared_b[row * BN + col] = b[row * n + col];
+            for (uint loadOffset = 0; loadOffset < BK; loadOffset += strideB) {
+                shared_b[(innerRowB + loadOffset) * BN + innerColB] =
+                    b[(innerRowB + loadOffset) * n + innerColB];
             }
 
             __syncthreads();
@@ -233,18 +229,18 @@ namespace tensorax {
             #pragma unroll
             for (uint dotIdx = 0; dotIdx < BK; ++dotIdx) {
                 #pragma unroll
-                for (uint tmIdx = 0; tmIdx < TM; ++tmIdx) {
-                    registerA[tmIdx] = shared_a[(threadRow * TM + tmIdx) * BK + dotIdx];
+                for (uint i = 0; i < TM; ++i) {
+                    registerA[i] = shared_a[(threadRow * TM + i) * BK + dotIdx];
                 }
                 #pragma unroll
-                for (uint tnIdx = 0; tnIdx < TN; ++tnIdx) {
-                    registerB[tnIdx] = shared_b[dotIdx * BN + threadCol * TN + tnIdx];
+                for (uint i = 0; i < TN; ++i) {
+                    registerB[i] = shared_b[dotIdx * BN + threadCol * TN + i];
                 }
                 #pragma unroll
-                for (uint tmIdx = 0; tmIdx < TM; ++tmIdx) {
+                for (uint resIdxM = 0; resIdxM < TM; ++resIdxM) {
                     #pragma unroll
-                    for (uint tnIdx = 0; tnIdx < TN; ++tnIdx) {
-                        threadResults[tmIdx][tnIdx] += registerA[tmIdx] * registerB[tnIdx];
+                    for (uint resIdxN = 0; resIdxN < TN; ++resIdxN) {
+                        threadResults[resIdxM][resIdxN] += registerA[resIdxM] * registerB[resIdxN];
                     }
                 }
             }
